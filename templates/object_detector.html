@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Object Detector 상세 보기</title>
+    <style>
+        /* 기본 스타일 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        .header {
+            background-color: #5A5A5A; /* 회색으로 변경 */
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1)
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 20px;
+        }
+        .menu {
+            width: 100%;
+            max-width: 250px;
+            background: #ffffff;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        @media(min-width: 768px) {
+            .menu {
+                margin-right: 20px;
+                margin-bottom: 0;
+            }
+        }
+        .menu h2 {
+            text-align: center;
+            color: #5A5A5A; /* 헤더 색상과 통일 */
+            margin-bottom: 20px;
+        }
+        .menu-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            position: relative;
+            transition: box-shadow 0.3s ease;
+        }
+        .menu-item:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .menu-item p {
+            margin: 5px 0;
+            font-size: 16px;
+        }
+        .menu-item .sidebar {
+            display: none;
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 150px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 10px;
+        }
+        .menu-item:hover .sidebar {
+            display: block;
+        }
+        .sidebar button {
+            width: 100%;
+            padding: 8px;
+            border: none;
+            background-color: #000000; /* 버튼 색상을 검은색으로 변경 */
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .sidebar button:hover {
+            background-color: #333333; /* 호버 시 진한 회색 */
+        }
+        .content {
+            flex: 1;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .content h2 {
+            color: #5A5A5A; /* 헤더 색상과 통일 */
+            margin-bottom: 20px;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px 0;
+            background-color: #fafafa;
+            border-top: 1px solid #e0e0e0;
+        }
+        .footer img {
+            max-width: 100%;
+            height: auto;
+        }
+        /* Object Detector 페이지 추가 스타일 */
+        .video-container {
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+            border: 1px solid #e0e0e0;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .video-container canvas {
+            width: 100%;
+            height: auto;
+        }
+        .center-buttons p {
+            margin: 10px 0;
+            font-size: 18px;
+        }
+        .center-buttons button {
+            margin: 5px;
+            padding: 10px 20px;
+            border: none;
+            background-color: #000000;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .center-buttons button:hover {
+            background-color: #000000;
+        }
+        #led-buttons button {
+            margin: 5px;
+            padding: 8px 16px;
+        }
+        .log-container {
+            width: 100%;
+            max-width: 100%;
+            height: 150px;
+            overflow-y: auto;
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 20px;
+            font-size: 0.9em;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+    <!-- jQuery 라이브러리 추가 -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div class="header">
+        <h1>투명도와 레이어 가변형 실감 사이니지 센서 제어 통합 모니터링 서버</h1>
+    </div>
+    <div class="container">
+        <div class="menu">
+            <h2>관리 시스템</h2>
+            <div class="menu-item">
+                <p>ONECAM-Video</p>
+                <p>State: <span id="onecam-status">off</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/onecam'">상세 보기</button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <p>Object Detector</p>
+                <p>State: <span id="object-detector-status">off</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/object_detector'">상세 보기</button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <p>Raspberry Pi Camera</p>
+                <p>State: <span id="rpi-status">off</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/rpi_cam'">상세 보기</button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <p>Weather Information</p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/weather'">상세 보기</button>
+                </div>
+            </div>
+        </div>
+        <div class="content">
+            <h2>Object Detector 상세 보기</h2>
+            <div class="video-container" id="cpp-video-full"></div>
+            <div class="center-buttons">
+                <p>Object Count: <span id="cpp-object-count">0</span></p>
+                <p>Percentage: <span id="cpp-percentage">0</span>%</p>
+                <p>Cumulative Object Count: <span id="cpp-cumulative-count">0</span></p>
+                <button onclick="resetCppCounter()">카운터 리셋</button>
+                <button onclick="exportCppData()">로그 데이터 내보내기</button>
+                <button onclick="window.location.href='/'">뒤로</button>
+            </div>
+            <!-- LED 제어 버튼 추가 -->
+            <div id="led-buttons" class="center-buttons">
+                <button id="btn-20" onclick="controlLed(20)" disabled>20% LED ON</button>
+                <button id="btn-40" onclick="controlLed(40)" disabled>40% LED ON</button>
+                <button id="btn-60" onclick="controlLed(60)" disabled>60% LED ON</button>
+                <button id="btn-80" onclick="controlLed(80)" disabled>80% LED ON</button>
+                <button id="btn-100" onclick="controlLed(100)" disabled>100% LED ON</button>
+            </div>
+            <div class="log-container" id="cpp-log"></div>
+        </div>
+    </div>
+    <div class="footer">
+        <img src="{{ url_for('static', filename='images/seoultech.png') }}" alt="서울과학기술대학교" width="200">
+    </div>
+    <script>
+        // 서버에서 제공하는 총 누적 카운트 값 저장 변수
+        let serverCumulativeCount = 0;
+
+        // 시스템 상태 업데이트 함수
+        function updateState() {
+            $.get('/get_frame', function(data) {
+                $('#onecam-status').text(data.status === "success" ? 'on' : 'off');
+            }).fail(function() {
+                $('#onecam-status').text('off');
+            });
+
+            $.get('/get_cpp_frame', function(data) {
+                $('#object-detector-status').text(data.status === "success" ? 'on' : 'off');
+            }).fail(function() {
+                $('#object-detector-status').text('off');
+            });
+
+            $.get('/get_rpi_frame', function(data) {
+                $('#rpi-status').text(data.status === "success" ? 'on' : 'off');
+            }).fail(function() {
+                $('#rpi-status').text('off');
+            });
+        }
+
+        setInterval(updateState, 1000);  // 상태를 1초마다 업데이트
+
+        // Object Detector 관련 함수들
+        function updateFrame() {
+            $.get('/get_cpp_frame', function(data) {
+                if (data.status === "no frame") {
+                    return;
+                }
+                updateCanvas(data.cpp_frame, '#cpp-video-full');
+
+                // 현재 값을 업데이트
+                $('#cpp-object-count').text(data.object_count);
+                $('#cpp-percentage').text(data.percentage);
+
+                // 서버에 요청하여 현재 누적 카운트 가져오기
+                $.get('/get_cpp_cumulative_count', function(countData) {
+                    if (countData.status === "success") {
+                        serverCumulativeCount = countData.cumulative_count;
+                        $('#cpp-cumulative-count').text(serverCumulativeCount);
+                    }
+                }).fail(function() {
+                    // 서버에서 누적 카운트를 가져오는데 실패한 경우, 수동으로 계산
+                    serverCumulativeCount += data.object_count;
+                    $('#cpp-cumulative-count').text(serverCumulativeCount);
+                });
+
+                // 로그에 현재 값과 누적 값만 기록 (타임스탬프 제거)
+                $('#cpp-log').append(`<p>Object Count: ${data.object_count}, Percentage: ${data.percentage}% (누적 카운트: ${serverCumulativeCount})</p>`);
+
+                // 스크롤을 항상 아래로 유지
+                $('#cpp-log').scrollTop($('#cpp-log')[0].scrollHeight);
+
+                // 퍼센티지에 따라 버튼 활성화
+                activateButtons(data.percentage);
+            });
+        }
+
+        function updateCanvas(frameData, containerId) {
+            const img = new Image();
+            img.src = 'data:image/jpeg;base64,' + frameData;
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                $(containerId).html(canvas);
+            }
+        }
+
+        function resetCppCounter() {
+            $.get('/reset_cpp_counter', function(data) {
+                if (data.status === "success") {
+                    serverCumulativeCount = 0;
+                    $('#cpp-cumulative-count').text('0');
+                    $('#cpp-log').append(`<p>카운터 리셋됨</p>`);
+                    $('#cpp-log').scrollTop($('#cpp-log')[0].scrollHeight);
+                }
+            });
+        }
+
+        function exportCppData() {
+            $.get('/export_cpp_data', function(data) {
+                if (data.status === "success") {
+                    alert('로그 데이터가 성공적으로 내보내졌습니다. 파일 이름: ' + data.filename);
+                    $('#cpp-log').append(`<p>로그 데이터 내보내기 완료: ${data.filename}</p>`);
+                    $('#cpp-log').scrollTop($('#cpp-log')[0].scrollHeight);
+                }
+            });
+        }
+
+        // 퍼센티지에 따라 버튼 활성화 또는 비활성화
+        function activateButtons(percentage) {
+            const percentages = [20, 40, 60, 80, 100];
+            percentages.forEach(p => {
+                const btn = document.getElementById(`btn-${p}`);
+                if (percentage >= p) {
+                    btn.disabled = false;
+                } else {
+                    btn.disabled = true;
+                }
+            });
+        }
+
+        // 버튼 클릭 시 서버로 요청 보내기
+        function controlLed(percentage) {
+            const time = prompt("LED를 켜는 시간을 초 단위로 입력하세요:", "10");
+            if (time != null) {
+                $.post('/control_led', { 'percentage': percentage, 'time': time }, function(response) {
+                    if (response.status === "success") {
+                        alert(`${percentage}% LED가 ${time}초 동안 켜집니다.`);
+                        $('#cpp-log').append(`<p>${percentage}% LED가 ${time}초 동안 켜집니다.</p>`);
+                        $('#cpp-log').scrollTop($('#cpp-log')[0].scrollHeight);
+                    } else {
+                        alert("LED 제어에 실패했습니다: " + response.message);
+                        $('#cpp-log').append(`<p>LED 제어 실패: ${response.message}</p>`);
+                        $('#cpp-log').scrollTop($('#cpp-log')[0].scrollHeight);
+                    }
+                });
+            }
+        }
+
+        // 페이지 로드 시 바로 프레임 업데이트를 시작
+        $(document).ready(function() {
+            updateState();
+            updateFrame();
+            // 100ms마다 프레임 업데이트
+            setInterval(updateFrame, 100);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>실내 설치 장소 및 주변 환경 맞춤형 실시간 날씨 알림 서비스</title>
+    <style>
+        /* 기본 스타일 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        .header {
+            background-color: #5A5A5A; /* 회색으로 변경 */
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1)
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 20px;
+        }
+        .menu {
+            width: 100%;
+            max-width: 250px;
+            background: #ffffff;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        @media(min-width: 768px) {
+            .menu {
+                margin-right: 20px;
+                margin-bottom: 0;
+            }
+        }
+        .menu h2 {
+            text-align: center;
+            color: #5A5A5A; /* 헤더 색상과 통일 */
+            margin-bottom: 20px;
+        }
+        .menu-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            position: relative;
+            transition: box-shadow 0.3s ease;
+        }
+        .menu-item:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .menu-item p {
+            margin: 5px 0;
+            font-size: 16px;
+        }
+        .menu-item .sidebar {
+            display: none;
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 150px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 10px;
+        }
+        .menu-item:hover .sidebar {
+            display: block;
+        }
+        .sidebar button {
+            width: 100%;
+            padding: 8px;
+            border: none;
+            background-color: #000000; /* 버튼 색상을 검은색으로 변경 */
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .sidebar button:hover {
+            background-color: #333333; /* 호버 시 진한 회색 */
+        }
+        .content {
+            flex: 1;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .content h2 {
+            color: #5A5A5A; /* 헤더 색상과 통일 */
+            margin-bottom: 20px;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px 0;
+            background-color: #fafafa;
+            border-top: 1px solid #e0e0e0;
+        }
+        .footer img {
+            max-width: 100%;
+            height: auto;
+        }
+        /* 날씨 페이지 추가 스타일 */
+        .weather-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .weather-info {
+            width: 100%;
+            max-width: 500px;
+            background: #ffffff;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-size: 1.2em;
+        }
+        .weather-image {
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .weather-image img {
+            max-width: 100%;
+            max-height: 300px;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+        .log-container {
+            width: 100%;
+            max-width: 1000px;
+            height: 200px;
+            overflow-y: auto;
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 20px;
+            font-size: 0.9em;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .button-container {
+            margin-top: 10px;
+        }
+        .button-container button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            border: none;
+            background-color: #000000;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .button-container button:hover {
+            background-color: #000000;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>투명도와 레이어 가변형 실감 사이니지 센서 제어 통합 모니터링 서버</h1>
+    </div>
+    <div class="container">
+        <div class="menu">
+            <h2>관리 시스템</h2>
+            <div class="menu-item">
+                <p>ONECAM-Video</p>
+                <p>State: <span id="onecam-status">on</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/onecam'">상세 보기</button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <p>Object Detector</p>
+                <p>State: <span id="object-detector-status">on</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/object_detector'">상세 보기</button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <p>Raspberry Pi Camera</p>
+                <p>State: <span id="rpi-status">on</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/rpi_cam'">상세 보기</button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <p>Weather Information</p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/weather'">상세 보기</button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <p>Monitoring Program</p>
+                <p>State: <span id="monitor-status">on</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/sound'">상세 보기</button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <p>OneCam Advanced Monitoring</p>
+                <p>State: <span id="onecam-advance-status">on</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/onecam_advance'">상세 보기</button>
+                </div>
+            </div>
+        </div>
+        <div class="content">
+            <h2>실내 설치 장소 및 주변 환경 맞춤형 실시간 날씨 알림 서비스</h2>
+            <div class="weather-container">
+                <div class="weather-info" id="weather-info">
+                    <p style="font-size: 2em;">온도: 17°C</p>
+                    <p style="font-size: 2em;">습도: 85%</p>
+                    <p style="font-size: 2.2em;">날씨: 흐림</p>
+                </div>
+                <div class="weather-image">
+                    <img id="weather-image" src="static/images/weather/overcast.png" alt="날씨 이미지">
+                </div>
+            </div>
+            <div class="log-container" id="weather-log">
+                <p>날씨 정보 페이지가 로드되었습니다.</p>
+                <p>온도: 17°C, 습도: 85%, 날씨: 흐림</p>
+            </div>
+            <div class="button-container">
+                <button onclick="exportWeatherLog()">로그 데이터 내보내기</button>
+                <button onclick="clearWeatherLog()">로그 화면 지우기</button>
+                <button onclick="window.location.href='/'">뒤로</button>
+            </div>
+        </div>
+    </div>
+    <div class="footer">
+        <img src="static/images/seoultech.png" alt="서울과학기술대학교" width="200">
+    </div>
+
+    <!-- 간단한 스크립트 -->
+    <script>
+        function exportWeatherLog() {
+            alert('로그 데이터가 성공적으로 내보내졌습니다.');
+            document.getElementById('weather-log').innerHTML = '<p>로그 데이터 내보내기 완료</p><p>날씨 정보 페이지가 로드되었습니다.</p><p>온도: 17°C, 습도: 85%, 날씨: 흐림</p>';
+        }
+
+        function clearWeatherLog() {
+            document.getElementById('weather-log').innerHTML = '<p>로그 화면이 지워졌습니다.</p>';
+        }
+    </script>
+</body>
+</html>

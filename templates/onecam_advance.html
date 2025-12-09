@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OneCam Advanced Monitoring 상세 보기</title>
+    <style>
+        /* 기본 스타일 유지 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        .header {
+            background-color: #5A5A5A; /* 회색으로 변경 */
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 20px;
+        }
+        .menu {
+            width: 100%;
+            max-width: 250px;
+            background: #ffffff;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        @media(min-width: 768px) {
+            .menu {
+                margin-right: 20px;
+                margin-bottom: 0;
+            }
+        }
+        .menu h2 {
+            text-align: center;
+            color: #5A5A5A; /* 헤더 색상과 통일 */
+            margin-bottom: 20px;
+        }
+        .menu-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            position: relative;
+            transition: box-shadow 0.3s ease;
+        }
+        .menu-item:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .menu-item p {
+            margin: 5px 0;
+            font-size: 16px;
+        }
+        .menu-item .sidebar {
+            display: none;
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 150px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 10px;
+        }
+        .menu-item:hover .sidebar {
+            display: block;
+        }
+        .sidebar button {
+            width: 100%;
+            padding: 8px;
+            border: none;
+            background-color: #000000; /* 버튼 색상을 검은색으로 변경 */
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .sidebar button:hover {
+            background-color: #333333; /* 호버 시 진한 회색 */
+        }
+        .content {
+            flex: 1;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .content h2 {
+            color: #5A5A5A; /* 헤더 색상과 통일 */
+            margin-bottom: 20px;
+        }
+        .monitor-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .monitor-image {
+            width: 100%;
+            max-width: 800px; /* 원하는 최대 너비로 설정 */
+            height: auto;
+            border: 1px solid #e0e0e0;
+            margin-bottom: 20px;
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .monitor-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .monitor-info {
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 20px;
+        }
+        .monitor-info p {
+            font-size: 18px;
+            margin: 5px 0;
+        }
+        .log-container {
+            width: 100%;
+            max-width: 800px;
+            height: 200px;
+            overflow-y: auto;
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 0.9em;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .button-container {
+            margin-top: 10px;
+        }
+        .button-container button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            border: none;
+            background-color: #000000; /* 버튼 색상을 검은색으로 변경 */
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .button-container button:hover {
+            background-color: #333333; /* 호버 시 진한 회색 */
+        }
+        .footer {
+            text-align: center;
+            padding: 20px 0;
+            background-color: #fafafa;
+            border-top: 1px solid #e0e0e0;
+        }
+        .footer img {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>투명도와 레이어 가변형 실감 사이니지 센서 제어 통합 모니터링 서버</h1>
+    </div>
+    <div class="container">
+        <div class="menu">
+            <h2>관리 시스템</h2>
+            <!-- 기존 메뉴 항목들 -->
+            <div class="menu-item">
+                <p>ONECAM-Video</p>
+                <p>State: <span id="onecam-status">off</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/onecam'">상세 보기</button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <p>Object Detector</p>
+                <p>State: <span id="object-detector-status">off</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/object_detector'">상세 보기</button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <p>Raspberry Pi Camera</p>
+                <p>State: <span id="rpi-status">off</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/rpi_cam'">상세 보기</button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <p>Weather Information</p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/weather'">상세 보기</button>
+                </div>
+            </div>
+            <!-- 새로운 OneCam Advanced Monitoring 메뉴 항목 추가 -->
+            <div class="menu-item">
+                <p>OneCam Advanced Monitoring</p>
+                <p>State: <span id="onecam-advance-status">off</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/onecam_advance'">상세 보기</button>
+                </div>
+            </div>
+        </div>
+        <div class="content">
+            <h2>OneCam Advanced Monitoring 상세 보기</h2>
+            <div class="monitor-container">
+                <div class="monitor-image">
+                    <img id="monitor-image" src="{{ url_for('static', filename='images/seoultech.png') }}" alt="Default Image">
+                </div>
+                <div class="monitor-info">
+                    <p>Face Count: <span id="face-count">0</span></p>
+                    <p>Cumulative Face Count: <span id="cumulative-face-count">0</span></p>
+                    <p>Video Playing: <span id="video-playing">off</span></p>
+                    <p>Uptime: <span id="uptime">0</span>초</p>
+                    <p>Video Play Time: <span id="video-play-time">0</span>초</p>
+                    <p>Cumulative Video Play Time: <span id="cumulative-video-play-time">0</span>초</p>
+                </div>
+                <div class="log-container" id="onecam-log"></div>
+                <div class="button-container">
+                    <button onclick="exportOneCamData()">로그 데이터 내보내기</button>
+                    <button onclick="window.location.href='/'">뒤로</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="footer">
+        <img src="{{ url_for('static', filename='images/seoultech.png') }}" alt="서울과학기술대학교" width="200">
+    </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function updateState() {
+            // 기존 시스템 상태 업데이트
+            $.get('/get_frame', function(data) {
+                $('#onecam-status').text(data.status === "success" ? 'on' : 'off');
+            }).fail(function() {
+                $('#onecam-status').text('off');
+            });
+
+            $.get('/get_cpp_frame', function(data) {
+                $('#object-detector-status').text(data.status === "success" ? 'on' : 'off');
+            }).fail(function() {
+                $('#object-detector-status').text('off');
+            });
+
+            $.get('/get_rpi_frame', function(data) {
+                $('#rpi-status').text(data.status === "success" ? 'on' : 'off');
+            }).fail(function() {
+                $('#rpi-status').text('off');
+            });
+
+            $.get('/get_monitor_frame', function(data) {
+                $('#monitor-status').text(data.status === "success" ? 'on' : 'off');
+            }).fail(function() {
+                $('#monitor-status').text('off');
+            });
+
+            // OneCam Advanced Monitoring 상태 업데이트
+            $.get('/get_onecam_advance_frame', function(data) {
+                $('#onecam-advance-status').text(data.status === "success" ? 'on' : 'off');
+            }).fail(function() {
+                $('#onecam-advance-status').text('off');
+            });
+        }
+
+        // OneCam Advanced Monitoring 데이터 업데이트
+        function updateOneCamAdvance() {
+            $.get('/get_onecam_advance_frame', function(data) {
+                if (data.status === "success") {
+                    // 이미지 업데이트
+                    if (data.frame) {
+                        $('#monitor-image').attr('src', 'data:image/jpeg;base64,' + data.frame);
+                    } else {
+                        // 프레임이 없을 경우 기본 이미지 표시
+                        $('#monitor-image').attr('src', '{{ url_for("static", filename="images/seoultech.png") }}');
+                    }
+
+                    // 정보 업데이트 - 서버에서 직접 받은 값 사용
+                    $('#face-count').text(data.face_count);
+                    $('#cumulative-face-count').text(data.cumulative_face_count);
+                    $('#video-playing').text(data.video_playing === "True" ? 'on' : 'off');
+                    $('#uptime').text(Math.floor(data.uptime));
+                    $('#video-play-time').text(Math.floor(data.video_play_time));
+                    $('#cumulative-video-play-time').text(Math.floor(data.cumulative_video_play_time));
+
+                    // 로그에 현재 데이터와 누적 데이터만 기록 (타임스탬프 제거)
+                    $('#onecam-log').prepend(
+                        `<p>Face Count: ${data.face_count} (누적: ${data.cumulative_face_count}),
+                        Video Playing: ${data.video_playing === "True" ? 'on' : 'off'},
+                        Play Time: ${Math.floor(data.video_play_time)}초 (누적: ${Math.floor(data.cumulative_video_play_time)}초)</p>`
+                    );
+
+                    // 로그가 너무 많아지면 이전 로그 삭제 (선택적)
+                    if ($('#onecam-log p').length > 100) {
+                        $('#onecam-log p').slice(50).remove();
+                    }
+                } else {
+                    // 실패 시 기본 이미지 표시
+                    $('#monitor-image').attr('src', '{{ url_for("static", filename="images/seoultech.png") }}');
+                }
+            }).fail(function() {
+                // 실패 시 기본 이미지 표시
+                $('#monitor-image').attr('src', '{{ url_for("static", filename="images/seoultech.png") }}');
+            });
+        }
+
+        // 로그 데이터 엑셀로 내보내기
+        function exportOneCamData() {
+            window.location.href = '/export_monitor_data';
+            // 로그에 내보내기 작업 기록 (타임스탬프 제거)
+            $('#onecam-log').prepend(`<p>로그 데이터 내보내기 요청됨</p>`);
+        }
+
+        // 페이지 로드 시 실행
+        $(document).ready(function() {
+            updateState();
+            updateOneCamAdvance();
+
+            // 시스템 상태 1초마다 업데이트
+            setInterval(updateState, 1000);
+
+            // OneCam 데이터 1초마다 업데이트 - 백그라운드에서도 계속 작동
+            setInterval(updateOneCamAdvance, 1000);
+
+            // 페이지 로드 시 로그 초기화 메시지 추가 (타임스탬프 제거)
+            $('#onecam-log').prepend(`<p>OneCam Advanced Monitoring 페이지 로드됨</p>`);
+        });
+
+        // 페이지를 벗어날 때의 처리
+        $(window).on('beforeunload', function() {
+            // 페이지를 벗어나도 서버 측 카운터는 계속 작동 중임을 로그에 기록
+            $.get('/log_page_exit', { page: 'onecam_advance' });
+        });
+    </script>
+</body>
+</html>

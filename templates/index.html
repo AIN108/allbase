@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>투명도와 레이어 가변형 실감 사이니지 센서 제어 통합 모니터링 서버</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        .header {
+            background-color: #5A5A5A; /* 회색으로 변경 */
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1)
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 20px;
+        }
+        .menu {
+            width: 100%;
+            max-width: 250px;
+            background: #ffffff;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        @media(min-width: 768px) {
+            .menu {
+                margin-right: 20px;
+                margin-bottom: 0;
+            }
+        }
+        .menu h2 {
+            text-align: center;
+            color: #5A5A5A; /* 헤더 색상과 통일 */
+            margin-bottom: 20px;
+        }
+        .menu-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            position: relative;
+            transition: box-shadow 0.3s ease;
+        }
+        .menu-item:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .menu-item p {
+            margin: 5px 0;
+            font-size: 16px;
+        }
+        .menu-item .sidebar {
+            display: none;
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 150px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 10px;
+        }
+        .menu-item:hover .sidebar {
+            display: block;
+        }
+        .sidebar button {
+            width: 100%;
+            padding: 8px;
+            border: none;
+            background-color: #000000; /* 버튼 색상을 검은색으로 변경 */
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .sidebar button:hover {
+            background-color: #333333; /* 호버 시 진한 회색 */
+        }
+        .content {
+            flex: 1;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .content h2 {
+            color: #5A5A5A; /* 헤더 색상과 통일 */
+            margin-bottom: 20px;
+        }
+        .content p {
+            font-size: 18px;
+            color: #555;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px 0;
+            background-color: #fafafa;
+            border-top: 1px solid #e0e0e0;
+        }
+        .footer img {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>투명도와 레이어 가변형 실감 사이니지 센서 제어 통합 모니터링 서버</h1>
+    </div>
+    <div class="container">
+        <div class="menu">
+            <h2>관리 시스템</h2>
+            <div class="menu-item">
+                <p>ONECAM-Video</p>
+                <p>State: <span id="onecam-status">off</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/onecam'">상세 보기</button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <p>Object Detector</p>
+                <p>State: <span id="object-detector-status">off</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/object_detector'">상세 보기</button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <p>Raspberry Pi Camera</p>
+                <p>State: <span id="rpi-status">off</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/rpi_cam'">상세 보기</button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <p>Weather Information</p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/weather'">상세 보기</button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <p>Monitoring Program</p>
+                <p>State: <span id="monitor-status">off</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/sound'">상세 보기</button>
+                </div>
+            </div>
+            <!-- 새로운 OneCam Advanced Monitoring 메뉴 항목 추가 -->
+            <div class="menu-item">
+                <p>OneCam Advanced Monitoring</p>
+                <p>State: <span id="onecam-advance-status">off</span></p>
+                <div class="sidebar">
+                    <button onclick="window.location.href='/onecam_advance'">상세 보기</button>
+                </div>
+            </div>
+        </div>
+        <div class="content">
+            <p>각 시스템의 상태를 확인하려면 메뉴에서 항목을 클릭하세요.</p>
+        </div>
+    </div>
+    <div class="footer">
+        <img src="{{ url_for('static', filename='images/seoultech.png') }}" alt="서울과학기술대학교" width="200">
+    </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function updateState() {
+            $.get('/get_frame', function(data) {
+                $('#onecam-status').text(data.status === "success" ? 'on' : 'off');
+            }).fail(function() {
+                $('#onecam-status').text('off');
+            });
+
+            $.get('/get_cpp_frame', function(data) {
+                $('#object-detector-status').text(data.status === "success" ? 'on' : 'off');
+            }).fail(function() {
+                $('#object-detector-status').text('off');
+            });
+
+            $.get('/get_rpi_frame', function(data) {
+                $('#rpi-status').text(data.status === "success" ? 'on' : 'off');
+            }).fail(function() {
+                $('#rpi-status').text('off');
+            });
+
+            $.get('/get_monitor_frame', function(data) {
+                $('#monitor-status').text(data.status === "success" ? 'on' : 'off');
+            }).fail(function() {
+                $('#monitor-status').text('off');
+            });
+
+            $.get('/get_onecam_advance_frame', function(data) {
+                $('#onecam-advance-status').text(data.status === "success" ? 'on' : 'off');
+            }).fail(function() {
+                $('#onecam-advance-status').text('off');
+            });
+        }
+
+        setInterval(updateState, 1000);  // 상태를 1초마다 업데이트
+    </script>
+</body>
+</html>
