@@ -148,3 +148,7 @@ python run_server.py
 ## License
 
 MIT License.
+
+## 포트폴리오
+
+- Notion 프로젝트: https://app.notion.com/p/2c5f6964be618096a181ec76b7902e4d
