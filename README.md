@@ -25,11 +25,10 @@ allbase/
 ├── requirements.txt
 ├── SECURITY.md
 ├── templates/
-├── static/
-└── weather_log.txt
+└── static/
 ```
 
-실행 중 Excel 내보내기 기능을 사용하면 `logs/` 디렉터리가 생성됩니다.
+실행 중 Excel 내보내기 기능을 사용하면 `logs/` 디렉터리가, 날씨 데이터를 수신하면 `weather_log.txt`가 생성됩니다(둘 다 git 추적 대상 아님).
 
 ## 설치
 
@@ -99,7 +98,7 @@ python run_server.py
 
 ## 기존 `server.py`
 
-과거 연동 환경과 실행 방식을 보존하기 위해 기존 `server.py`도 그대로 남겨 두었습니다. 다만 이 파일을 직접 실행하면 과거 개발 서버 설정을 사용하므로 **새 환경에서는 `run_server.py` 사용을 권장합니다.**
+과거 연동 환경과 실행 방식을 보존하기 위해 기존 `server.py`도 그대로 남겨 두었습니다. 이 파일을 직접 실행하면 기존 클라이언트 연동을 위해 `0.0.0.0:5000`에 바인딩합니다(debug는 꺼져 있음). 바인딩 주소와 debug를 환경변수로 조절하려면 **`run_server.py` 사용을 권장합니다.**
 
 ## 주요 페이지
 

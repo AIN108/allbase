@@ -713,12 +713,24 @@ def get_last_weather_data():
 @app.route('/update_weather_data', methods=['POST'])
 def update_weather_data():
     global last_weather_data
-    data = request.json
-    last_weather_data = data  # 최신 데이터를 갱신
+    data = request.get_json(silent=True)
+    required_keys = ("temperature", "humidity", "weather", "precipitation", "snowfall")
+    if not isinstance(data, dict):
+        return jsonify({"status": "error", "message": "JSON 객체가 필요합니다."}), 400
+    missing = [key for key in required_keys if key not in data]
+    if missing:
+        return jsonify({"status": "error", "message": f"누락된 필드: {', '.join(missing)}"}), 400
+
+    # 개행 등 제어문자를 제거해 로그 한 줄 위조를 막고 길이를 제한한다.
+    def clean(value):
+        return "".join(ch for ch in str(value) if ch.isprintable())[:50]
+
+    values = {key: clean(data[key]) for key in required_keys}
+    last_weather_data = values  # 최신 데이터를 갱신
     # 기존의 로그 파일에 저장하는 코드도 추가
-    with open(log_file, 'a') as file:
+    with open(log_file, 'a', encoding='utf-8') as file:
         file.write(
-            f"온도: {data['temperature']}°C, 습도: {data['humidity']}%, 날씨: {data['weather']}, 강수량: {data['precipitation']}mm, 적설량: {data['snowfall']}cm\n")
+            f"온도: {values['temperature']}°C, 습도: {values['humidity']}%, 날씨: {values['weather']}, 강수량: {values['precipitation']}mm, 적설량: {values['snowfall']}cm\n")
     return jsonify({"status": "success"})
 
 
@@ -796,4 +808,5 @@ def background_data_logger():
 # 서버 시작 시 백그라운드 로거 시작
 if __name__ == '__main__':
     background_data_logger()  # 백그라운드 데이터 로깅 시작
-    app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
+    # 기존 클라이언트 연동을 위해 0.0.0.0 바인딩은 유지하되, 외부 노출 시 원격 코드 실행이 가능한 debug는 끈다.
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

@@ -392,11 +392,11 @@
                         $('#detection-count').text(detectionCount);
 
                         // 로그에 새 탐지 정보 추가 (타임스탬프 제거)
-                        $('#monitor-log').prepend(`<p><strong>새로운 탐지:</strong> ${data.label} (신뢰도: ${(data.percentage || 0).toFixed(2)}%)</p>`);
+                        $('#monitor-log').prepend($('<p>').append($('<strong>').text('새로운 탐지:'), document.createTextNode(` ${data.label} (신뢰도: ${(data.percentage || 0).toFixed(2)}%)`)));
                         lastLabel = data.label;
                     } else if (data.label && data.label !== "없음" && data.label !== "") {
                         // 일반 업데이트 로그 (탐지 중인 경우만) (타임스탬프 제거)
-                        $('#monitor-log').prepend(`<p>현재 라벨: ${data.label}, 신뢰도: ${(data.percentage || 0).toFixed(2)}%</p>`);
+                        $('#monitor-log').prepend($('<p>').text(`현재 라벨: ${data.label}, 신뢰도: ${(data.percentage || 0).toFixed(2)}%`));
                     }
 
                     // 모니터링 시간 업데이트
