@@ -5,12 +5,68 @@ import base64
 import time
 import os
 from threading import Lock
+from collections import deque
 import datetime
 import socket
 
 import pandas as pd
 
 app = Flask(__name__)
+
+
+# 소스별 로그 최대 보관 행 수 (오래된 행부터 버림). 장시간 실행 시 메모리 누적 방지.
+LOG_MAX_ROWS = int(os.getenv("ALLBASE_LOG_MAX_ROWS", "10000"))
+
+
+def new_log():
+    return deque(maxlen=LOG_MAX_ROWS)
+
+
+class CamSession:
+    """카메라 소스 하나의 얼굴 수·누적 인원·영상 재생시간 상태.
+
+    OneCam / RPi / OneCam Advanced가 서로의 카운트를 덮어쓰거나 리셋하지 않도록 소스마다 따로 둔다.
+    """
+
+    def __init__(self):
+        self.face_count = 0
+        self.cumulative_face_count = 0
+        self.body_count = 0
+        self.cumulative_body_count = 0
+        self.video_playing = False
+        self.video_start_time = None
+        self.video_play_time = 0
+        self.cumulative_video_play_time = 0
+
+    def update_counts(self, face_count, body_count=None):
+        """누적 인원은 직전 프레임보다 늘어난 만큼만 더한다.
+
+        같은 사람이 화면에 머무는 동안 매 프레임 합산되어 실제보다 부풀려지던 문제를 막는다.
+        """
+        self.cumulative_face_count += max(0, face_count - self.face_count)
+        self.face_count = face_count
+        if body_count is not None:
+            self.cumulative_body_count += max(0, body_count - self.body_count)
+            self.body_count = body_count
+
+    def update_video(self, playing, now):
+        self.video_playing = playing
+        if playing and self.video_start_time is None:
+            self.video_start_time = now
+        elif not playing and self.video_start_time is not None:
+            elapsed = now - self.video_start_time
+            self.video_play_time += elapsed
+            self.cumulative_video_play_time += elapsed
+            self.video_start_time = None
+
+    def current_play_time(self, now):
+        """재생 중이면 진행 중인 구간까지 포함한 재생 시간."""
+        if self.video_start_time is not None:
+            return self.video_play_time + (now - self.video_start_time)
+        return self.video_play_time
+
+    def reset(self):
+        self.__init__()
 
 
 class SharedState:
@@ -24,28 +80,32 @@ class SharedState:
         self.monitor_label = ""
         self.monitor_percentage = 0.0
         self.monitor_timestamp = ""
-        self.face_count = 0
-        self.cumulative_face_count = 0  # 누적된 Face Count 저장
-        self.body_count = 0  # 바디 카운트
-        self.cumulative_body_count = 0  # 누적된 Body Count 저장
-        self.video_play_time = 0
-        self.cumulative_video_play_time = 0  # 누적된 Video Play Time 저장
+        self.onecam = CamSession()
+        self.rpi = CamSession()
+        self.onecam_advance = CamSession()
         self.cpp_object_count = 0
         self.cpp_percentage = 0
         self.cpp_cumulative_count = 0
-        self.excel_data_onecam = []
-        self.excel_data_cpp = []
-        self.excel_data_rpi = []
-        self.excel_data_monitor = []
-        self.excel_data_onecam_advance = []  # OneCam Advanced 로그 데이터 추가
-        self.video_start_time = None
-        self.video_playing = False  # 비디오 재생 상태 저장
+        self.excel_data_onecam = new_log()
+        self.excel_data_cpp = new_log()
+        self.excel_data_rpi = new_log()
+        self.excel_data_monitor = new_log()
+        self.excel_data_onecam_advance = new_log()  # OneCam Advanced 로그 데이터 추가
+        self.last_logged = {}  # 소스별 직전 로그 행 (값이 바뀔 때만 기록하기 위해 사용)
         self.start_time = time.time()
         self.last_data_update = time.time()  # 마지막 데이터 업데이트 시간
         self.lock = Lock()
 
 
 state = SharedState()
+
+
+def append_if_changed(source, log, row):
+    """직전에 기록한 행과 값이 다를 때만 추가한다. 호출 측에서 state.lock을 잡고 있어야 한다."""
+    if state.last_logged.get(source) == row:
+        return
+    state.last_logged[source] = row
+    log.append(row)
 
 # 소켓 경로 설정
 SOCKET_PATH = '/tmp/led_control_socket'
@@ -60,8 +120,8 @@ def log_page_exit():
         if page == 'onecam':
             state.excel_data_onecam.append({
                 'Event': 'Page Exit',
-                'Face Count': state.face_count,
-                'Video Play Time': state.video_play_time
+                'Face Count': state.onecam.face_count,
+                'Video Play Time': state.onecam.video_play_time
             })
         elif page == 'object_detector':
             state.excel_data_cpp.append({
@@ -72,15 +132,15 @@ def log_page_exit():
         elif page == 'rpi_cam':
             state.excel_data_rpi.append({
                 'Event': 'Page Exit',
-                'Face Count': state.face_count,
-                'Body Count': state.body_count
+                'Face Count': state.rpi.face_count,
+                'Body Count': state.rpi.body_count
             })
         elif page == 'onecam_advance':
             state.excel_data_onecam_advance.append({
                 'Event': 'Page Exit',
-                'Face Count': state.face_count,
-                'Video Playing': state.video_playing,
-                'Video Play Time': state.video_play_time
+                'Face Count': state.onecam_advance.face_count,
+                'Video Playing': state.onecam_advance.video_playing,
+                'Video Play Time': state.onecam_advance.video_play_time
             })
 
     return jsonify({'status': 'success'})
@@ -158,27 +218,19 @@ def update_frame():
         with state.lock:
             state.current_frame1 = cv2.imdecode(npimg1, cv2.IMREAD_COLOR)
             state.current_frame2 = cv2.imdecode(npimg2, cv2.IMREAD_COLOR)
-            state.face_count = int(request.form['face_count'])
             video_playing = request.form['video_playing'] == 'True'
+            current_time = time.time()
 
             # 누적된 Face Count와 Video Play Time 업데이트
-            state.cumulative_face_count += state.face_count
+            state.onecam.update_counts(int(request.form['face_count']))
+            state.onecam.update_video(video_playing, current_time)
 
-            current_time = time.time()
-            if video_playing and state.video_start_time is None:
-                state.video_start_time = current_time
-            elif not video_playing and state.video_start_time is not None:
-                elapsed = current_time - state.video_start_time
-                state.video_play_time += elapsed
-                state.cumulative_video_play_time += elapsed
-                state.video_start_time = None
-
-            # 로그 데이터 추가
-            state.excel_data_onecam.append({
-                'Face Count': state.face_count,
-                'Cumulative Face Count': state.cumulative_face_count,
-                'Video Play Time': state.video_play_time,
-                'Cumulative Video Play Time': state.cumulative_video_play_time
+            # 로그 데이터 추가 (값이 바뀐 경우에만)
+            append_if_changed('onecam', state.excel_data_onecam, {
+                'Face Count': state.onecam.face_count,
+                'Cumulative Face Count': state.onecam.cumulative_face_count,
+                'Video Play Time': state.onecam.video_play_time,
+                'Cumulative Video Play Time': state.onecam.cumulative_video_play_time
             })
 
             state.last_data_update = current_time
@@ -204,8 +256,8 @@ def update_cpp_frame():
             state.cpp_percentage = percentage
             state.cpp_cumulative_count += object_count
 
-            # 로그 데이터를 추가
-            state.excel_data_cpp.append({
+            # 로그 데이터를 추가 (값이 바뀐 경우에만)
+            append_if_changed('cpp', state.excel_data_cpp, {
                 'Object Count': object_count,
                 'Percentage': percentage,
                 'Cumulative Count': state.cpp_cumulative_count
@@ -240,19 +292,15 @@ def update_rpi_frame():
 
         with state.lock:
             state.rpi_frame = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
-            state.face_count = face_count
-            state.body_count = body_count
-
             # 누적된 Face Count와 Body Count 업데이트
-            state.cumulative_face_count += face_count
-            state.cumulative_body_count += body_count
+            state.rpi.update_counts(face_count, body_count)
 
-            # 로그 데이터 추가
-            state.excel_data_rpi.append({
+            # 로그 데이터 추가 (값이 바뀐 경우에만)
+            append_if_changed('rpi', state.excel_data_rpi, {
                 'Face Count': face_count,
                 'Body Count': body_count,
-                'Cumulative Face Count': state.cumulative_face_count,
-                'Cumulative Body Count': state.cumulative_body_count
+                'Cumulative Face Count': state.rpi.cumulative_face_count,
+                'Cumulative Body Count': state.rpi.cumulative_body_count
             })
 
             state.last_data_update = time.time()
@@ -278,8 +326,8 @@ def monitor_update():
             with state.lock:
                 state.monitor_label = label
                 state.monitor_percentage = percentage
-                # 로그 데이터 추가
-                state.excel_data_monitor.append({
+                # 로그 데이터 추가 (값이 바뀐 경우에만)
+                append_if_changed('monitor', state.excel_data_monitor, {
                     'Label': label,
                     'Percentage': percentage,
                     'Has Image': False
@@ -304,8 +352,8 @@ def monitor_update():
                 state.monitor_image = image
                 state.monitor_label = label
                 state.monitor_percentage = percentage
-                # 로그 데이터 추가
-                state.excel_data_monitor.append({
+                # 로그 데이터 추가 (값이 바뀐 경우에만)
+                append_if_changed('monitor', state.excel_data_monitor, {
                     'Label': label,
                     'Percentage': percentage,
                     'Has Image': True
@@ -340,30 +388,21 @@ def update_onecam_advance_frame():
             frame = None
 
         with state.lock:
-            state.face_count = face_count
-            state.video_playing = video_playing
             if frame is not None:
                 state.current_frame = frame
 
             current_time = time.time()
             # 누적된 Face Count와 Video Play Time 업데이트
-            state.cumulative_face_count += face_count
+            state.onecam_advance.update_counts(face_count)
+            state.onecam_advance.update_video(video_playing, current_time)
 
-            if video_playing and state.video_start_time is None:
-                state.video_start_time = current_time
-            elif not video_playing and state.video_start_time is not None:
-                elapsed = current_time - state.video_start_time
-                state.video_play_time += elapsed
-                state.cumulative_video_play_time += elapsed
-                state.video_start_time = None
-
-            # 로그 데이터 추가
-            state.excel_data_onecam_advance.append({
+            # 로그 데이터 추가 (값이 바뀐 경우에만)
+            append_if_changed('onecam_advance', state.excel_data_onecam_advance, {
                 'Face Count': face_count,
-                'Cumulative Face Count': state.cumulative_face_count,
-                'Video Playing': video_playing,
-                'Video Play Time': state.video_play_time,
-                'Cumulative Video Play Time': state.cumulative_video_play_time
+                'Cumulative Face Count': state.onecam_advance.cumulative_face_count,
+                'Video Playing': state.onecam_advance.video_playing,
+                'Video Play Time': state.onecam_advance.video_play_time,
+                'Cumulative Video Play Time': state.onecam_advance.cumulative_video_play_time
             })
 
             state.last_data_update = current_time
@@ -380,7 +419,7 @@ def get_frame():
         if state.current_frame1 is None:
             return jsonify({"status": "no frame"})
 
-        current_frame = state.current_frame1 if state.video_start_time is None else state.current_frame2
+        current_frame = state.current_frame1 if state.onecam.video_start_time is None else state.current_frame2
 
         _, buffer = cv2.imencode('.jpg', current_frame)
         frame_base64 = base64.b64encode(buffer).decode('utf-8')
@@ -389,19 +428,16 @@ def get_frame():
         uptime = current_time - state.start_time
 
         # 비디오가 재생 중인 경우 실시간으로 재생 시간 계산
-        if state.video_start_time:
-            video_play_time = state.video_play_time + (current_time - state.video_start_time)
-        else:
-            video_play_time = state.video_play_time
+        video_play_time = state.onecam.current_play_time(current_time)
 
         return jsonify({
             "status": "success",
             "frame": frame_base64,
-            "face_count": state.face_count,
-            "cumulative_face_count": state.cumulative_face_count,  # 누적된 Face Count 반환
+            "face_count": state.onecam.face_count,
+            "cumulative_face_count": state.onecam.cumulative_face_count,  # 누적된 Face Count 반환
             "uptime": uptime,
             "video_play_time": video_play_time,
-            "cumulative_video_play_time": state.cumulative_video_play_time  # 누적된 Video Play Time 반환
+            "cumulative_video_play_time": state.onecam.cumulative_video_play_time  # 누적된 Video Play Time 반환
         })
 
 
@@ -437,10 +473,10 @@ def get_rpi_frame():
         return jsonify({
             "status": "success",
             "frame": frame_base64,
-            "face_count": state.face_count,
-            "cumulative_face_count": state.cumulative_face_count,  # 누적된 Face Count 반환
-            "body_count": state.body_count,  # 바디 카운트 반환
-            "cumulative_body_count": state.cumulative_body_count  # 누적된 Body Count 반환
+            "face_count": state.rpi.face_count,
+            "cumulative_face_count": state.rpi.cumulative_face_count,  # 누적된 Face Count 반환
+            "body_count": state.rpi.body_count,  # 바디 카운트 반환
+            "cumulative_body_count": state.rpi.cumulative_body_count  # 누적된 Body Count 반환
         })
 
 
@@ -489,20 +525,17 @@ def get_onecam_advance_frame():
         uptime = current_time - state.start_time
 
         # 비디오가 재생 중인 경우 실시간으로 재생 시간 계산
-        if state.video_playing and state.video_start_time:
-            video_play_time = state.video_play_time + (current_time - state.video_start_time)
-        else:
-            video_play_time = state.video_play_time
+        video_play_time = state.onecam_advance.current_play_time(current_time)
 
         return jsonify({
             "status": "success",
             "frame": frame_base64,
-            "face_count": state.face_count,
-            "cumulative_face_count": state.cumulative_face_count,
-            "video_playing": str(state.video_playing),
+            "face_count": state.onecam_advance.face_count,
+            "cumulative_face_count": state.onecam_advance.cumulative_face_count,
+            "video_playing": str(state.onecam_advance.video_playing),
             "uptime": uptime,
             "video_play_time": video_play_time,
-            "cumulative_video_play_time": state.cumulative_video_play_time
+            "cumulative_video_play_time": state.onecam_advance.cumulative_video_play_time
         })
 
 
@@ -513,16 +546,16 @@ def export_data():
         # 로그 내보내기 전에 현재 상태 저장
         state.excel_data_onecam.append({
             'Event': 'Export Log',
-            'Face Count': state.face_count,
-            'Cumulative Face Count': state.cumulative_face_count,
-            'Video Play Time': state.video_play_time,
-            'Cumulative Video Play Time': state.cumulative_video_play_time
+            'Face Count': state.onecam.face_count,
+            'Cumulative Face Count': state.onecam.cumulative_face_count,
+            'Video Play Time': state.onecam.video_play_time,
+            'Cumulative Video Play Time': state.onecam.cumulative_video_play_time
         })
 
         filename = f"{time.strftime('%Y%m%d_%H%M%S')}_onecam_log.xlsx"
         filepath = os.path.join('logs', filename)
         os.makedirs('logs', exist_ok=True)
-        df = pd.DataFrame(state.excel_data_onecam)
+        df = pd.DataFrame(list(state.excel_data_onecam))
         df.to_excel(filepath, index=False)
     return jsonify({"status": "success", "filename": filename})
 
@@ -542,7 +575,7 @@ def export_cpp_data():
         filename = f"{time.strftime('%Y%m%d_%H%M%S')}_object_detector_log.xlsx"
         filepath = os.path.join('logs', filename)
         os.makedirs('logs', exist_ok=True)
-        df = pd.DataFrame(state.excel_data_cpp)
+        df = pd.DataFrame(list(state.excel_data_cpp))
         df.to_excel(filepath, index=False)
     return jsonify({"status": "success", "filename": filename})
 
@@ -554,16 +587,16 @@ def export_rpi_data():
         # 로그 내보내기 전에 현재 상태 저장
         state.excel_data_rpi.append({
             'Event': 'Export Log',
-            'Face Count': state.face_count,
-            'Body Count': state.body_count,
-            'Cumulative Face Count': state.cumulative_face_count,
-            'Cumulative Body Count': state.cumulative_body_count
+            'Face Count': state.rpi.face_count,
+            'Body Count': state.rpi.body_count,
+            'Cumulative Face Count': state.rpi.cumulative_face_count,
+            'Cumulative Body Count': state.rpi.cumulative_body_count
         })
 
         filename = f"{time.strftime('%Y%m%d_%H%M%S')}_rpi_cam_log.xlsx"
         filepath = os.path.join('logs', filename)
         os.makedirs('logs', exist_ok=True)
-        df = pd.DataFrame(state.excel_data_rpi)
+        df = pd.DataFrame(list(state.excel_data_rpi))
         df.to_excel(filepath, index=False)
     return jsonify({"status": "success", "filename": filename})
 
@@ -577,17 +610,17 @@ def export_monitor_data():
             # 로그 내보내기 전에 현재 상태 저장
             state.excel_data_onecam_advance.append({
                 'Event': 'Export Log',
-                'Face Count': state.face_count,
-                'Cumulative Face Count': state.cumulative_face_count,
-                'Video Playing': state.video_playing,
-                'Video Play Time': state.video_play_time,
-                'Cumulative Video Play Time': state.cumulative_video_play_time
+                'Face Count': state.onecam_advance.face_count,
+                'Cumulative Face Count': state.onecam_advance.cumulative_face_count,
+                'Video Playing': state.onecam_advance.video_playing,
+                'Video Play Time': state.onecam_advance.video_play_time,
+                'Cumulative Video Play Time': state.onecam_advance.cumulative_video_play_time
             })
 
             filename = f"{time.strftime('%Y%m%d_%H%M%S')}_onecam_advance_log.xlsx"
             filepath = os.path.join('logs', filename)
             os.makedirs('logs', exist_ok=True)
-            df = pd.DataFrame(state.excel_data_onecam_advance)
+            df = pd.DataFrame(list(state.excel_data_onecam_advance))
             df.to_excel(filepath, index=False)
         else:
             # 기존 모니터링 로그 내보내기
@@ -600,7 +633,7 @@ def export_monitor_data():
             filename = f"{time.strftime('%Y%m%d_%H%M%S')}_monitor_log.xlsx"
             filepath = os.path.join('logs', filename)
             os.makedirs('logs', exist_ok=True)
-            df = pd.DataFrame(state.excel_data_monitor)
+            df = pd.DataFrame(list(state.excel_data_monitor))
             df.to_excel(filepath, index=False)
 
     return jsonify({"status": "success", "filename": filename})
@@ -612,16 +645,13 @@ def reset_counter():
     with state.lock:
         state.excel_data_onecam.append({
             'Event': 'Reset Counter',
-            'Face Count': state.face_count,
-            'Cumulative Face Count': state.cumulative_face_count,
-            'Video Play Time': state.video_play_time,
-            'Cumulative Video Play Time': state.cumulative_video_play_time
+            'Face Count': state.onecam.face_count,
+            'Cumulative Face Count': state.onecam.cumulative_face_count,
+            'Video Play Time': state.onecam.video_play_time,
+            'Cumulative Video Play Time': state.onecam.cumulative_video_play_time
         })
-        state.face_count = 0
-        state.cumulative_face_count = 0  # 누적된 Face Count 리셋
-        state.video_play_time = 0
-        state.cumulative_video_play_time = 0  # 누적된 Video Play Time 리셋
-        state.video_start_time = None
+        state.onecam.reset()  # OneCam 카운트·재생시간만 리셋 (다른 소스에는 영향 없음)
+        state.last_logged.pop('onecam', None)
     return jsonify({"status": "success"})
 
 
@@ -636,6 +666,7 @@ def reset_cpp_counter():
             'Cumulative Count': state.cpp_cumulative_count
         })
         state.cpp_cumulative_count = 0
+        state.last_logged.pop('cpp', None)
     return jsonify({"status": "success"})
 
 
@@ -645,15 +676,13 @@ def reset_rpi_counter():
     with state.lock:
         state.excel_data_rpi.append({
             'Event': 'Reset Counter',
-            'Face Count': state.face_count,
-            'Body Count': state.body_count,
-            'Cumulative Face Count': state.cumulative_face_count,
-            'Cumulative Body Count': state.cumulative_body_count
+            'Face Count': state.rpi.face_count,
+            'Body Count': state.rpi.body_count,
+            'Cumulative Face Count': state.rpi.cumulative_face_count,
+            'Cumulative Body Count': state.rpi.cumulative_body_count
         })
-        state.face_count = 0
-        state.body_count = 0
-        state.cumulative_face_count = 0  # 누적된 Face Count 리셋
-        state.cumulative_body_count = 0  # 누적된 Body Count 리셋
+        state.rpi.reset()  # RPi 카운트만 리셋 (OneCam 등 다른 소스에는 영향 없음)
+        state.last_logged.pop('rpi', None)
     return jsonify({"status": "success"})
 
 
@@ -669,6 +698,7 @@ def reset_monitor_counter():
         state.monitor_label = ""
         state.monitor_percentage = 0.0
         state.monitor_timestamp = ""
+        state.last_logged.pop('monitor', None)
     return jsonify({"status": "success"})
 
 
@@ -755,10 +785,10 @@ def background_data_logger():
                         if state.current_frame1 is not None:
                             state.excel_data_onecam.append({
                                 'Event': 'Background Log',
-                                'Face Count': state.face_count,
-                                'Cumulative Face Count': state.cumulative_face_count,
-                                'Video Play Time': state.video_play_time,
-                                'Cumulative Video Play Time': state.cumulative_video_play_time
+                                'Face Count': state.onecam.face_count,
+                                'Cumulative Face Count': state.onecam.cumulative_face_count,
+                                'Video Play Time': state.onecam.video_play_time,
+                                'Cumulative Video Play Time': state.onecam.cumulative_video_play_time
                             })
 
                         # Object Detector 데이터 로깅
@@ -774,21 +804,21 @@ def background_data_logger():
                         if state.rpi_frame is not None:
                             state.excel_data_rpi.append({
                                 'Event': 'Background Log',
-                                'Face Count': state.face_count,
-                                'Body Count': state.body_count,
-                                'Cumulative Face Count': state.cumulative_face_count,
-                                'Cumulative Body Count': state.cumulative_body_count
+                                'Face Count': state.rpi.face_count,
+                                'Body Count': state.rpi.body_count,
+                                'Cumulative Face Count': state.rpi.cumulative_face_count,
+                                'Cumulative Body Count': state.rpi.cumulative_body_count
                             })
 
                         # OneCam Advanced 데이터 로깅
                         if state.current_frame is not None:
                             state.excel_data_onecam_advance.append({
                                 'Event': 'Background Log',
-                                'Face Count': state.face_count,
-                                'Cumulative Face Count': state.cumulative_face_count,
-                                'Video Playing': state.video_playing,
-                                'Video Play Time': state.video_play_time,
-                                'Cumulative Video Play Time': state.cumulative_video_play_time
+                                'Face Count': state.onecam_advance.face_count,
+                                'Cumulative Face Count': state.onecam_advance.cumulative_face_count,
+                                'Video Playing': state.onecam_advance.video_playing,
+                                'Video Play Time': state.onecam_advance.video_play_time,
+                                'Cumulative Video Play Time': state.onecam_advance.cumulative_video_play_time
                             })
 
                         state.last_data_update = current_time
