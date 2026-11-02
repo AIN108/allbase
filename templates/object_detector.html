@@ -279,6 +279,11 @@
                 // 로그에 현재 값과 누적 값만 기록 (타임스탬프 제거)
                 $('#cpp-log').append(`<p>Object Count: ${data.object_count}, Percentage: ${data.percentage}% (누적 카운트: ${serverCumulativeCount})</p>`);
 
+                // 로그가 너무 많아지면 오래된 로그 삭제 (매초 추가되므로 장시간 열어두면 메모리가 계속 늘어남)
+                if ($('#cpp-log p').length > 100) {
+                    $('#cpp-log p').slice(0, -50).remove();
+                }
+
                 // 스크롤을 항상 아래로 유지
                 $('#cpp-log').scrollTop($('#cpp-log')[0].scrollHeight);
 

@@ -9,3 +9,4 @@ logs/
 *.xlsx
 .DS_Store
 Thumbs.db
+weather_log.txt

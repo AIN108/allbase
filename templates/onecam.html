@@ -256,6 +256,11 @@
                 // 로그에 현재 값과 누적 값만 기록 (타임스탬프 제거)
                 $('#onecam-log').append(`<p>Frame updated | Face: ${data.face_count} (누적: ${data.cumulative_face_count}) | Time: ${Math.round(data.video_play_time)}초 (누적: ${Math.round(data.cumulative_video_play_time)}초)</p>`);
 
+                // 로그가 너무 많아지면 오래된 로그 삭제 (매초 추가되므로 장시간 열어두면 메모리가 계속 늘어남)
+                if ($('#onecam-log p').length > 100) {
+                    $('#onecam-log p').slice(0, -50).remove();
+                }
+
                 // 스크롤을 항상 아래로 유지
                 $('#onecam-log').scrollTop($('#onecam-log')[0].scrollHeight);
             });

@@ -257,6 +257,11 @@
                 // 로그에 현재 값과 누적 값만 기록 (타임스탬프 제거)
                 $('#rpi-log').append(`<p>Face: ${data.face_count} (누적: ${data.cumulative_face_count}) | Body: ${data.body_count} (누적: ${data.cumulative_body_count})</p>`);
 
+                // 로그가 너무 많아지면 오래된 로그 삭제 (매초 추가되므로 장시간 열어두면 메모리가 계속 늘어남)
+                if ($('#rpi-log p').length > 100) {
+                    $('#rpi-log p').slice(0, -50).remove();
+                }
+
                 // 스크롤을 항상 아래로 유지
                 $('#rpi-log').scrollTop($('#rpi-log')[0].scrollHeight);
             });
