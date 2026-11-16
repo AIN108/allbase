@@ -89,8 +89,13 @@ def log_page_exit():
 # /control_led 엔드포인트 추가
 @app.route('/control_led', methods=['POST'])
 def control_led():
-    percentage = int(request.form.get('percentage'))
-    duration = int(request.form.get('time'))
+    try:
+        percentage = int(request.form.get('percentage', ''))
+        duration = int(request.form.get('time', ''))
+    except ValueError:
+        return jsonify({'status': 'failure', 'message': 'percentage와 time은 정수여야 합니다'}), 400
+    if not 0 <= percentage <= 100 or duration <= 0:
+        return jsonify({'status': 'failure', 'message': 'percentage는 0~100, time은 1 이상이어야 합니다'}), 400
 
     # C++ 프로그램에 명령 전송
     try:
