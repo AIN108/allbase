@@ -796,4 +796,6 @@ def background_data_logger():
 # 서버 시작 시 백그라운드 로거 시작
 if __name__ == '__main__':
     background_data_logger()  # 백그라운드 데이터 로깅 시작
-    app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
+    # 기존 LAN 바인딩은 유지하되, 외부 인터페이스에서 Werkzeug 디버거(코드 실행 가능)는 켜지 않는다.
+    # 디버그가 필요하면 run_server.py에서 ALLBASE_DEBUG=1(localhost 전용)을 사용한다.
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
