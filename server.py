@@ -710,13 +710,22 @@ def get_last_weather_data():
         })
 
 
+WEATHER_FIELDS = ("temperature", "humidity", "weather", "precipitation", "snowfall")
+
+
 @app.route('/update_weather_data', methods=['POST'])
 def update_weather_data():
     global last_weather_data
-    data = request.json
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"status": "error", "message": "JSON 객체가 필요합니다"}), 400
+    missing = [key for key in WEATHER_FIELDS if key not in data]
+    if missing:
+        # 검증 실패 시 last_weather_data를 덮어쓰지 않는다.
+        return jsonify({"status": "error", "message": f"필수 항목 누락: {missing}"}), 400
     last_weather_data = data  # 최신 데이터를 갱신
-    # 기존의 로그 파일에 저장하는 코드도 추가
-    with open(log_file, 'a') as file:
+    # 기존의 로그 파일에 저장하는 코드도 추가 (OS 기본 인코딩과 무관하게 UTF-8로 기록)
+    with open(log_file, 'a', encoding='utf-8') as file:
         file.write(
             f"온도: {data['temperature']}°C, 습도: {data['humidity']}%, 날씨: {data['weather']}, 강수량: {data['precipitation']}mm, 적설량: {data['snowfall']}cm\n")
     return jsonify({"status": "success"})
