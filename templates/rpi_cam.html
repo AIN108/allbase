@@ -255,7 +255,7 @@
                 $('#rpi-cumulative-body-count').text(data.cumulative_body_count);
 
                 // 로그에 현재 값과 누적 값만 기록 (타임스탬프 제거)
-                $('#rpi-log').append(`<p>Face: ${data.face_count} (누적: ${data.cumulative_face_count}) | Body: ${data.body_count} (누적: ${data.cumulative_body_count})</p>`);
+                $('#rpi-log').append($('<p>').text(`Face: ${data.face_count} (누적: ${data.cumulative_face_count}) | Body: ${data.body_count} (누적: ${data.cumulative_body_count})`));
 
                 // 스크롤을 항상 아래로 유지
                 $('#rpi-log').scrollTop($('#rpi-log')[0].scrollHeight);
@@ -280,7 +280,7 @@
                 if (data.status === "success") {
                     // 리셋 후 바로 데이터 새로고침
                     updateRpiFrame();
-                    $('#rpi-log').append(`<p>카운터 리셋됨</p>`);
+                    $('#rpi-log').append($('<p>').text(`카운터 리셋됨`));
                     $('#rpi-log').scrollTop($('#rpi-log')[0].scrollHeight);
                 }
             });
@@ -290,7 +290,7 @@
             $.get('/export_rpi_data', function(data) {
                 if (data.status === "success") {
                     alert('로그 데이터가 성공적으로 내보내졌습니다. 파일 이름: ' + data.filename);
-                    $('#rpi-log').append(`<p>로그 데이터 내보내기 완료: ${data.filename}</p>`);
+                    $('#rpi-log').append($('<p>').text(`로그 데이터 내보내기 완료: ${data.filename}`));
                     $('#rpi-log').scrollTop($('#rpi-log')[0].scrollHeight);
                 }
             });

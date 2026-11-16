@@ -254,7 +254,7 @@
                 $('#cumulative-video-play-time').text(Math.round(data.cumulative_video_play_time));
 
                 // 로그에 현재 값과 누적 값만 기록 (타임스탬프 제거)
-                $('#onecam-log').append(`<p>Frame updated | Face: ${data.face_count} (누적: ${data.cumulative_face_count}) | Time: ${Math.round(data.video_play_time)}초 (누적: ${Math.round(data.cumulative_video_play_time)}초)</p>`);
+                $('#onecam-log').append($('<p>').text(`Frame updated | Face: ${data.face_count} (누적: ${data.cumulative_face_count}) | Time: ${Math.round(data.video_play_time)}초 (누적: ${Math.round(data.cumulative_video_play_time)}초)`));
 
                 // 스크롤을 항상 아래로 유지
                 $('#onecam-log').scrollTop($('#onecam-log')[0].scrollHeight);
@@ -279,7 +279,7 @@
                 if (data.status === "success") {
                     // 리셋 후 바로 데이터를 새로고침
                     updateFrame();
-                    $('#onecam-log').append(`<p>카운터 리셋됨</p>`);
+                    $('#onecam-log').append($('<p>').text(`카운터 리셋됨`));
                     $('#onecam-log').scrollTop($('#onecam-log')[0].scrollHeight);
                 }
             });
@@ -289,7 +289,7 @@
             $.get('/export_data', function(data) {
                 if (data.status === "success") {
                     alert('로그 데이터가 성공적으로 내보내졌습니다. 파일 이름: ' + data.filename);
-                    $('#onecam-log').append(`<p>로그 데이터 내보내기 완료: ${data.filename}</p>`);
+                    $('#onecam-log').append($('<p>').text(`로그 데이터 내보내기 완료: ${data.filename}`));
                     $('#onecam-log').scrollTop($('#onecam-log')[0].scrollHeight);
                 }
             });
