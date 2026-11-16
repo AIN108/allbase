@@ -4,6 +4,8 @@ import numpy as np
 import base64
 import time
 import os
+import functools
+import hmac
 from collections import deque
 from threading import Lock
 import datetime
@@ -16,6 +18,25 @@ app = Flask(__name__)
 # 모듈별 Excel 로그 버퍼의 최대 행 수. 넘으면 오래된 행부터 버린다 (행당 약 250B → 100,000행 약 24MB).
 # ALLBASE_MAX_LOG_ROWS=0 이면 기존처럼 무제한으로 쌓는다.
 MAX_LOG_ROWS = int(os.getenv("ALLBASE_MAX_LOG_ROWS", "100000")) or None
+
+# 선택형 API 토큰. 설정하면 클라이언트 데이터 수신 API는 X-Allbase-Token 헤더(또는 Authorization: Bearer)가
+# 일치해야 받는다. 설정하지 않으면(기본) 기존 클라이언트와 같이 인증 없이 받는다.
+API_TOKEN = os.getenv("ALLBASE_API_TOKEN") or None
+
+
+def require_api_token(view):
+    @functools.wraps(view)
+    def wrapper(*args, **kwargs):
+        if API_TOKEN is not None:
+            supplied = request.headers.get("X-Allbase-Token", "")
+            auth = request.headers.get("Authorization", "")
+            if not supplied and auth.startswith("Bearer "):
+                supplied = auth[len("Bearer "):]
+            if not hmac.compare_digest(supplied.encode(), API_TOKEN.encode()):
+                return jsonify({"status": "error", "message": "API 토큰이 없거나 올바르지 않습니다"}), 401
+        return view(*args, **kwargs)
+
+    return wrapper
 
 
 class SharedState:
@@ -167,6 +188,7 @@ def onecam_advance():
 
 # OneCam 프레임 업데이트 및 처리
 @app.route('/update_frame', methods=['POST'])
+@require_api_token
 def update_frame():
     try:
         file1 = request.files['frame1']
@@ -209,6 +231,7 @@ def update_frame():
 
 # Object Detector 프레임 업데이트 및 처리
 @app.route('/update_cpp_frame', methods=['POST'])
+@require_api_token
 def update_cpp_frame():
     try:
         file = request.files['image']
@@ -249,6 +272,7 @@ def get_cpp_cumulative_count():
 
 # 라즈베리 파이 카메라 프레임 업데이트 및 처리
 @app.route('/update_rpi_frame', methods=['POST'])
+@require_api_token
 def update_rpi_frame():
     try:
         file = request.files['frame']
@@ -284,6 +308,7 @@ def update_rpi_frame():
 # 모니터링 프로그램 데이터 업데이트 엔드포인트
 # 모니터링 프로그램 데이터 업데이트 엔드포인트 (개선 버전)
 @app.route('/monitor_update', methods=['POST'])
+@require_api_token
 def monitor_update():
     try:
         data = request.get_json()
@@ -343,6 +368,7 @@ def monitor_update():
 
 # OneCam Advanced 프레임 업데이트
 @app.route('/update_onecam_advance_frame', methods=['POST'])
+@require_api_token
 def update_onecam_advance_frame():
     try:
         data = request.get_json()
@@ -742,6 +768,7 @@ WEATHER_FIELDS = ("temperature", "humidity", "weather", "precipitation", "snowfa
 
 
 @app.route('/update_weather_data', methods=['POST'])
+@require_api_token
 def update_weather_data():
     global last_weather_data
     data = request.get_json(silent=True)

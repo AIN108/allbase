@@ -141,7 +141,15 @@ python run_server.py
 
 ## 보안 범위
 
-현재 API는 실험/연구 환경을 전제로 하며 인증 기능이 없습니다. 인터넷에 직접 공개하지 말고 신뢰할 수 있는 내부 네트워크에서 사용하세요.
+현재 API는 실험/연구 환경을 전제로 하며 기본값에서는 인증 기능이 없습니다. 인터넷에 직접 공개하지 말고 신뢰할 수 있는 내부 네트워크에서 사용하세요.
+
+같은 LAN의 다른 장치가 데이터를 위조해 보내는 것을 막고 싶다면 선택형 API 토큰을 켤 수 있습니다.
+
+```bash
+ALLBASE_API_TOKEN='긴-임의-문자열' ALLBASE_HOST=0.0.0.0 python run_server.py
+```
+
+토큰을 켜면 데이터 수신 API 6개(`/update_frame`, `/update_cpp_frame`, `/update_rpi_frame`, `/monitor_update`, `/update_onecam_advance_frame`, `/update_weather_data`)는 `X-Allbase-Token: <토큰>` 또는 `Authorization: Bearer <토큰>` 헤더가 있어야 요청을 받고, 없으면 401을 돌려줍니다. 각 클라이언트 프로그램도 이 헤더를 보내도록 바꿔야 합니다. 대시보드 페이지, 조회 API, 브라우저에서 호출하는 `/control_led`·리셋·내보내기 API는 토큰 없이 그대로 동작합니다.
 
 운영 환경으로 확장할 경우 인증, HTTPS, 업로드 제한, rate limiting, 운영용 WSGI 서버 등이 추가로 필요합니다. 자세한 내용은 [`SECURITY.md`](./SECURITY.md)를 참고하세요.
 
