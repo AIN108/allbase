@@ -277,7 +277,7 @@
                 });
 
                 // 로그에 현재 값과 누적 값만 기록 (타임스탬프 제거)
-                $('#cpp-log').append(`<p>Object Count: ${data.object_count}, Percentage: ${data.percentage}% (누적 카운트: ${serverCumulativeCount})</p>`);
+                $('#cpp-log').append($('<p>').text(`Object Count: ${data.object_count}, Percentage: ${data.percentage}% (누적 카운트: ${serverCumulativeCount})`));
 
                 // 스크롤을 항상 아래로 유지
                 $('#cpp-log').scrollTop($('#cpp-log')[0].scrollHeight);
@@ -305,7 +305,7 @@
                 if (data.status === "success") {
                     serverCumulativeCount = 0;
                     $('#cpp-cumulative-count').text('0');
-                    $('#cpp-log').append(`<p>카운터 리셋됨</p>`);
+                    $('#cpp-log').append($('<p>').text(`카운터 리셋됨`));
                     $('#cpp-log').scrollTop($('#cpp-log')[0].scrollHeight);
                 }
             });
@@ -315,7 +315,7 @@
             $.get('/export_cpp_data', function(data) {
                 if (data.status === "success") {
                     alert('로그 데이터가 성공적으로 내보내졌습니다. 파일 이름: ' + data.filename);
-                    $('#cpp-log').append(`<p>로그 데이터 내보내기 완료: ${data.filename}</p>`);
+                    $('#cpp-log').append($('<p>').text(`로그 데이터 내보내기 완료: ${data.filename}`));
                     $('#cpp-log').scrollTop($('#cpp-log')[0].scrollHeight);
                 }
             });
@@ -341,11 +341,11 @@
                 $.post('/control_led', { 'percentage': percentage, 'time': time }, function(response) {
                     if (response.status === "success") {
                         alert(`${percentage}% LED가 ${time}초 동안 켜집니다.`);
-                        $('#cpp-log').append(`<p>${percentage}% LED가 ${time}초 동안 켜집니다.</p>`);
+                        $('#cpp-log').append($('<p>').text(`${percentage}% LED가 ${time}초 동안 켜집니다.`));
                         $('#cpp-log').scrollTop($('#cpp-log')[0].scrollHeight);
                     } else {
                         alert("LED 제어에 실패했습니다: " + response.message);
-                        $('#cpp-log').append(`<p>LED 제어 실패: ${response.message}</p>`);
+                        $('#cpp-log').append($('<p>').text(`LED 제어 실패: ${response.message}`));
                         $('#cpp-log').scrollTop($('#cpp-log')[0].scrollHeight);
                     }
                 });

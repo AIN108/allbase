@@ -300,11 +300,11 @@
                     $('#cumulative-video-play-time').text(Math.floor(data.cumulative_video_play_time));
 
                     // 로그에 현재 데이터와 누적 데이터만 기록 (타임스탬프 제거)
-                    $('#onecam-log').prepend(
-                        `<p>Face Count: ${data.face_count} (누적: ${data.cumulative_face_count}),
+                    $('#onecam-log').prepend($('<p>').text(
+                        `Face Count: ${data.face_count} (누적: ${data.cumulative_face_count}),
                         Video Playing: ${data.video_playing === "True" ? 'on' : 'off'},
-                        Play Time: ${Math.floor(data.video_play_time)}초 (누적: ${Math.floor(data.cumulative_video_play_time)}초)</p>`
-                    );
+                        Play Time: ${Math.floor(data.video_play_time)}초 (누적: ${Math.floor(data.cumulative_video_play_time)}초)`
+                    ));
 
                     // 로그가 너무 많아지면 이전 로그 삭제 (선택적)
                     if ($('#onecam-log p').length > 100) {
@@ -324,7 +324,7 @@
         function exportOneCamData() {
             window.location.href = '/export_monitor_data';
             // 로그에 내보내기 작업 기록 (타임스탬프 제거)
-            $('#onecam-log').prepend(`<p>로그 데이터 내보내기 요청됨</p>`);
+            $('#onecam-log').prepend($('<p>').text(`로그 데이터 내보내기 요청됨`));
         }
 
         // 페이지 로드 시 실행
@@ -339,7 +339,7 @@
             setInterval(updateOneCamAdvance, 1000);
 
             // 페이지 로드 시 로그 초기화 메시지 추가 (타임스탬프 제거)
-            $('#onecam-log').prepend(`<p>OneCam Advanced Monitoring 페이지 로드됨</p>`);
+            $('#onecam-log').prepend($('<p>').text(`OneCam Advanced Monitoring 페이지 로드됨`));
         });
 
         // 페이지를 벗어날 때의 처리
