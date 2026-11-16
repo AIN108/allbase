@@ -4,6 +4,7 @@ import numpy as np
 import base64
 import time
 import os
+from collections import deque
 from threading import Lock
 import datetime
 import socket
@@ -11,6 +12,10 @@ import socket
 import pandas as pd
 
 app = Flask(__name__)
+
+# 모듈별 Excel 로그 버퍼의 최대 행 수. 넘으면 오래된 행부터 버린다 (행당 약 250B → 100,000행 약 24MB).
+# ALLBASE_MAX_LOG_ROWS=0 이면 기존처럼 무제한으로 쌓는다.
+MAX_LOG_ROWS = int(os.getenv("ALLBASE_MAX_LOG_ROWS", "100000")) or None
 
 
 class SharedState:
@@ -33,11 +38,11 @@ class SharedState:
         self.cpp_object_count = 0
         self.cpp_percentage = 0
         self.cpp_cumulative_count = 0
-        self.excel_data_onecam = []
-        self.excel_data_cpp = []
-        self.excel_data_rpi = []
-        self.excel_data_monitor = []
-        self.excel_data_onecam_advance = []  # OneCam Advanced 로그 데이터 추가
+        self.excel_data_onecam = deque(maxlen=MAX_LOG_ROWS)
+        self.excel_data_cpp = deque(maxlen=MAX_LOG_ROWS)
+        self.excel_data_rpi = deque(maxlen=MAX_LOG_ROWS)
+        self.excel_data_monitor = deque(maxlen=MAX_LOG_ROWS)
+        self.excel_data_onecam_advance = deque(maxlen=MAX_LOG_ROWS)  # OneCam Advanced 로그 데이터 추가
         self.video_start_time = None
         self.video_playing = False  # 비디오 재생 상태 저장
         self.start_time = time.time()
@@ -506,6 +511,17 @@ def get_onecam_advance_frame():
         })
 
 
+def write_log_excel(rows, name):
+    """로그 스냅샷을 logs/<시각>_<name>_log.xlsx로 저장한다.
+
+    Excel 저장은 수 초가 걸릴 수 있으므로(100,000행 약 3초) state.lock 밖에서 호출한다.
+    """
+    filename = f"{time.strftime('%Y%m%d_%H%M%S')}_{name}_log.xlsx"
+    os.makedirs('logs', exist_ok=True)
+    pd.DataFrame(rows).to_excel(os.path.join('logs', filename), index=False)
+    return filename
+
+
 # 로그 데이터 내보내기 (OneCam)
 @app.route('/export_data')
 def export_data():
@@ -519,11 +535,8 @@ def export_data():
             'Cumulative Video Play Time': state.cumulative_video_play_time
         })
 
-        filename = f"{time.strftime('%Y%m%d_%H%M%S')}_onecam_log.xlsx"
-        filepath = os.path.join('logs', filename)
-        os.makedirs('logs', exist_ok=True)
-        df = pd.DataFrame(state.excel_data_onecam)
-        df.to_excel(filepath, index=False)
+        rows = list(state.excel_data_onecam)
+    filename = write_log_excel(rows, "onecam")
     return jsonify({"status": "success", "filename": filename})
 
 
@@ -539,11 +552,8 @@ def export_cpp_data():
             'Cumulative Count': state.cpp_cumulative_count
         })
 
-        filename = f"{time.strftime('%Y%m%d_%H%M%S')}_object_detector_log.xlsx"
-        filepath = os.path.join('logs', filename)
-        os.makedirs('logs', exist_ok=True)
-        df = pd.DataFrame(state.excel_data_cpp)
-        df.to_excel(filepath, index=False)
+        rows = list(state.excel_data_cpp)
+    filename = write_log_excel(rows, "object_detector")
     return jsonify({"status": "success", "filename": filename})
 
 
@@ -560,11 +570,8 @@ def export_rpi_data():
             'Cumulative Body Count': state.cumulative_body_count
         })
 
-        filename = f"{time.strftime('%Y%m%d_%H%M%S')}_rpi_cam_log.xlsx"
-        filepath = os.path.join('logs', filename)
-        os.makedirs('logs', exist_ok=True)
-        df = pd.DataFrame(state.excel_data_rpi)
-        df.to_excel(filepath, index=False)
+        rows = list(state.excel_data_rpi)
+    filename = write_log_excel(rows, "rpi_cam")
     return jsonify({"status": "success", "filename": filename})
 
 
@@ -584,11 +591,7 @@ def export_monitor_data():
                 'Cumulative Video Play Time': state.cumulative_video_play_time
             })
 
-            filename = f"{time.strftime('%Y%m%d_%H%M%S')}_onecam_advance_log.xlsx"
-            filepath = os.path.join('logs', filename)
-            os.makedirs('logs', exist_ok=True)
-            df = pd.DataFrame(state.excel_data_onecam_advance)
-            df.to_excel(filepath, index=False)
+            rows, name = list(state.excel_data_onecam_advance), "onecam_advance"
         else:
             # 기존 모니터링 로그 내보내기
             state.excel_data_monitor.append({
@@ -597,12 +600,9 @@ def export_monitor_data():
                 'Percentage': state.monitor_percentage
             })
 
-            filename = f"{time.strftime('%Y%m%d_%H%M%S')}_monitor_log.xlsx"
-            filepath = os.path.join('logs', filename)
-            os.makedirs('logs', exist_ok=True)
-            df = pd.DataFrame(state.excel_data_monitor)
-            df.to_excel(filepath, index=False)
+            rows, name = list(state.excel_data_monitor), "monitor"
 
+    filename = write_log_excel(rows, name)
     return jsonify({"status": "success", "filename": filename})
 
 
