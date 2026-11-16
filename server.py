@@ -392,6 +392,24 @@ def update_onecam_advance_frame():
         return jsonify({"status": "error", "message": str(e)}), 400
 
 
+_encoded_frames = {}  # key -> (프레임 배열, base64 JPEG). state.lock 안에서만 읽고 쓴다.
+
+
+def encode_frame_base64(key, frame):
+    """프레임을 base64 JPEG로 인코딩한다. 같은 프레임 객체면 이전 결과를 재사용한다.
+
+    대시보드는 100ms마다 조회하지만 프레임은 업로드될 때만 새 객체로 바뀌므로,
+    같은 프레임을 반복 인코딩하지 않는다 (1280×720 기준 인코딩 1회 약 2.8ms).
+    """
+    cached = _encoded_frames.get(key)
+    if cached is not None and cached[0] is frame:
+        return cached[1]
+    _, buffer = cv2.imencode('.jpg', frame)
+    encoded = base64.b64encode(buffer).decode('utf-8')
+    _encoded_frames[key] = (frame, encoded)
+    return encoded
+
+
 # OneCam 프레임 가져오기
 @app.route('/get_frame')
 def get_frame():
@@ -401,8 +419,8 @@ def get_frame():
 
         current_frame = state.current_frame1 if state.video_start_time is None else state.current_frame2
 
-        _, buffer = cv2.imencode('.jpg', current_frame)
-        frame_base64 = base64.b64encode(buffer).decode('utf-8')
+        key = 'onecam1' if current_frame is state.current_frame1 else 'onecam2'
+        frame_base64 = encode_frame_base64(key, current_frame)
 
         current_time = time.time()
         uptime = current_time - state.start_time
@@ -431,8 +449,7 @@ def get_cpp_frame():
         if state.cpp_frame is None:
             return jsonify({"status": "no frame"})
 
-        _, buffer = cv2.imencode('.jpg', state.cpp_frame)
-        frame_base64 = base64.b64encode(buffer).decode('utf-8')
+        frame_base64 = encode_frame_base64('cpp', state.cpp_frame)
 
         return jsonify({
             "status": "success",
@@ -450,8 +467,7 @@ def get_rpi_frame():
         if state.rpi_frame is None:
             return jsonify({"status": "no frame"})
 
-        _, buffer = cv2.imencode('.jpg', state.rpi_frame)
-        frame_base64 = base64.b64encode(buffer).decode('utf-8')
+        frame_base64 = encode_frame_base64('rpi', state.rpi_frame)
 
         return jsonify({
             "status": "success",
@@ -472,8 +488,7 @@ def get_monitor_frame():
 
         try:
             # 이미지 인코딩 시도
-            _, buffer = cv2.imencode('.jpg', state.monitor_image)
-            frame_base64 = base64.b64encode(buffer).decode('utf-8')
+            frame_base64 = encode_frame_base64('monitor', state.monitor_image)
 
             return jsonify({
                 "status": "success",
@@ -500,8 +515,7 @@ def get_onecam_advance_frame():
         current_time = time.time()
 
         if state.current_frame is not None:
-            _, buffer = cv2.imencode('.jpg', state.current_frame)
-            frame_base64 = base64.b64encode(buffer).decode('utf-8')
+            frame_base64 = encode_frame_base64('onecam_advance', state.current_frame)
         else:
             frame_base64 = None
 
