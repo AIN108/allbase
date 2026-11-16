@@ -231,17 +231,17 @@
             <h2>실내 설치 장소 및 주변 환경 맞춤형 실시간 날씨 알림 서비스</h2>
             <div class="weather-container">
                 <div class="weather-info" id="weather-info">
-                    <p style="font-size: 2em;">온도: 17°C</p>
-                    <p style="font-size: 2em;">습도: 85%</p>
-                    <p style="font-size: 2.2em;">날씨: 흐림</p>
+                    <p style="font-size: 2em;">온도: <span id="weather-temperature">-</span></p>
+                    <p style="font-size: 2em;">습도: <span id="weather-humidity">-</span></p>
+                    <p style="font-size: 2.2em;">날씨: <span id="weather-state">불러오는 중...</span></p>
+                    <p id="weather-status">서버에서 날씨 정보를 불러오는 중입니다.</p>
                 </div>
                 <div class="weather-image">
-                    <img id="weather-image" src="static/images/weather/overcast.png" alt="날씨 이미지">
+                    <img id="weather-image" src="/static/images/weather/default.png" alt="날씨 이미지">
                 </div>
             </div>
             <div class="log-container" id="weather-log">
                 <p>날씨 정보 페이지가 로드되었습니다.</p>
-                <p>온도: 17°C, 습도: 85%, 날씨: 흐림</p>
             </div>
             <div class="button-container">
                 <button onclick="exportWeatherLog()">로그 데이터 내보내기</button>
@@ -254,16 +254,95 @@
         <img src="static/images/seoultech.png" alt="서울과학기술대학교" width="200">
     </div>
 
-    <!-- 간단한 스크립트 -->
     <script>
+        // 서버 값은 모두 textContent로 넣는다(HTML 문자열 금지: tests/test_templates.py).
+        const POLL_INTERVAL_MS = 10000;  // itscseoul.py는 1분마다 보내므로 10초 간격이면 충분하다
+        const NO_DATA = "데이터 없음";   // 서버가 아직 받은 데이터가 없을 때 돌려주는 값
+        const WEATHER_IMAGES = {
+            "맑음": "clear", "구름많음": "cloudy", "흐림": "overcast",
+            "비옴": "rain", "빗방울": "rain",
+            "비/눈옴": "snow", "빗방울눈날림": "snow", "눈옴": "snow", "눈날림": "snow"
+        };
+        let lastLogLine = null;
+
+        function addLog(text) {
+            const line = document.createElement('p');
+            line.textContent = text;
+            document.getElementById('weather-log').prepend(line);
+        }
+
+        function valueOrDash(value) {
+            return value === null || value === undefined || value === "" ? "-" : String(value);
+        }
+
+        function showWeather(data) {
+            const hasData = data.temperature !== NO_DATA || data.weather !== NO_DATA;
+            const temperature = valueOrDash(data.temperature);
+            const humidity = valueOrDash(data.humidity);
+            const weather = valueOrDash(data.weather);
+
+            document.getElementById('weather-temperature').textContent = hasData ? temperature + "°C" : NO_DATA;
+            document.getElementById('weather-humidity').textContent = hasData ? humidity + "%" : NO_DATA;
+            document.getElementById('weather-state').textContent = weather;
+            document.getElementById('weather-status').textContent = hasData
+                ? "마지막 수신 값입니다."
+                : "아직 수신한 날씨 정보가 없습니다. 날씨 클라이언트(itscseoul.py)가 데이터를 보내면 표시됩니다.";
+            const image = document.getElementById('weather-image');
+            image.src = "/static/images/weather/" + (WEATHER_IMAGES[weather] || "default") + ".png";
+            image.alt = "날씨 이미지: " + weather;
+
+            if (hasData) {
+                const logLine = "온도: " + temperature + "°C, 습도: " + humidity + "%, 날씨: " + weather;
+                if (logLine !== lastLogLine) {
+                    addLog(logLine);
+                    lastLogLine = logLine;
+                }
+            }
+        }
+
+        function loadWeather() {
+            fetch('/get_last_weather_data', {cache: 'no-store'})
+                .then(response => {
+                    if (!response.ok) throw new Error("HTTP " + response.status);
+                    return response.json();
+                })
+                .then(showWeather)
+                .catch(error => {
+                    document.getElementById('weather-status').textContent = "서버 연결 실패: " + error.message;
+                });
+        }
+
         function exportWeatherLog() {
-            alert('로그 데이터가 성공적으로 내보내졌습니다.');
-            document.getElementById('weather-log').innerHTML = '<p>로그 데이터 내보내기 완료</p><p>날씨 정보 페이지가 로드되었습니다.</p><p>온도: 17°C, 습도: 85%, 날씨: 흐림</p>';
+            fetch('/export_weather_log', {cache: 'no-store'})
+                .then(response => {
+                    if (response.ok) {
+                        return response.blob().then(blob => {
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = "weather_log.txt";
+                            document.body.appendChild(link);
+                            link.click();
+                            link.remove();
+                            setTimeout(() => URL.revokeObjectURL(url), 1000);
+                            addLog("로그 데이터 내보내기 완료 (weather_log.txt)");
+                        });
+                    }
+                    return response.json()
+                        .then(body => body.message, () => "HTTP " + response.status)
+                        .then(message => addLog("로그 데이터 내보내기 실패: " + message));
+                })
+                .catch(error => addLog("로그 데이터 내보내기 실패: " + error.message));
         }
 
         function clearWeatherLog() {
-            document.getElementById('weather-log').innerHTML = '<p>로그 화면이 지워졌습니다.</p>';
+            const log = document.getElementById('weather-log');
+            log.replaceChildren();
+            addLog("로그 화면이 지워졌습니다.");
         }
+
+        loadWeather();
+        setInterval(loadWeather, POLL_INTERVAL_MS);
     </script>
 </body>
 </html>
