@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, url_for, send_file
+from flask import Flask, render_template, request, jsonify, url_for, send_file, abort
 import cv2
 import numpy as np
 import base64
@@ -22,6 +22,25 @@ MAX_LOG_ROWS = int(os.getenv("ALLBASE_MAX_LOG_ROWS", "100000")) or None
 # 선택형 API 토큰. 설정하면 클라이언트 데이터 수신 API는 X-Allbase-Token 헤더(또는 Authorization: Bearer)가
 # 일치해야 받는다. 설정하지 않으면(기본) 기존 클라이언트와 같이 인증 없이 받는다.
 API_TOKEN = os.getenv("ALLBASE_API_TOKEN") or None
+
+# 요청 본문 최대 크기(MB). 프레임 업로드(JPEG 여러 장)를 막지 않도록 넉넉하게 두고, 넘으면 413으로 거부한다.
+# ALLBASE_MAX_UPLOAD_MB=0 이면 기존처럼 제한하지 않는다.
+MAX_UPLOAD_MB = max(0.0, float(os.getenv("ALLBASE_MAX_UPLOAD_MB", "32")))
+app.config["MAX_CONTENT_LENGTH"] = int(MAX_UPLOAD_MB * 1024 * 1024) or None
+
+
+@app.before_request
+def reject_oversized_request():
+    # Content-Length로 미리 거부한다. (라우트 안의 except Exception이 413을 400으로 바꾸지 않도록)
+    limit = app.config["MAX_CONTENT_LENGTH"]
+    if limit is not None and request.content_length is not None and request.content_length > limit:
+        abort(413)
+
+
+@app.errorhandler(413)
+def request_too_large(_error):
+    return jsonify({"status": "error",
+                    "message": f"요청이 너무 큽니다 (최대 {MAX_UPLOAD_MB:g}MB, ALLBASE_MAX_UPLOAD_MB로 변경)"}), 413
 
 
 def require_api_token(view):
@@ -195,10 +214,16 @@ def update_frame():
         file2 = request.files['frame2']
         npimg1 = np.frombuffer(file1.read(), np.uint8)
         npimg2 = np.frombuffer(file2.read(), np.uint8)
+        frame1 = cv2.imdecode(npimg1, cv2.IMREAD_COLOR)
+        frame2 = cv2.imdecode(npimg2, cv2.IMREAD_COLOR)
+        if frame1 is None or frame2 is None:
+            # 깨진 이미지를 저장하면 /get_frame 인코딩이 실패하므로 받지 않는다 (기존 프레임 유지).
+            bad = [name for name, frame in (("frame1", frame1), ("frame2", frame2)) if frame is None]
+            return jsonify({"status": "error", "message": f"이미지를 디코딩할 수 없습니다: {bad}"}), 400
 
         with state.lock:
-            state.current_frame1 = cv2.imdecode(npimg1, cv2.IMREAD_COLOR)
-            state.current_frame2 = cv2.imdecode(npimg2, cv2.IMREAD_COLOR)
+            state.current_frame1 = frame1
+            state.current_frame2 = frame2
             state.face_count = int(request.form['face_count'])
             video_playing = request.form['video_playing'] == 'True'
 
@@ -740,7 +765,9 @@ weather_data = {
     "snowfall": "0"
 }
 
-log_file = "weather_log.txt"
+# 저장(open)과 내보내기(send_file)가 같은 파일을 쓰도록 시작 시 실행 폴더 기준 절대 경로로 고정한다.
+# (send_file은 상대 경로를 실행 폴더가 아니라 앱 폴더 기준으로 해석한다)
+log_file = os.path.abspath("weather_log.txt")
 last_weather_data = None  # 서버에서 마지막으로 받은 데이터를 저장
 
 
@@ -788,6 +815,8 @@ def update_weather_data():
 
 @app.route('/export_weather_log', methods=['GET'])
 def export_weather_log():
+    if not os.path.isfile(log_file):
+        return jsonify({"status": "error", "message": "아직 저장된 날씨 로그가 없습니다"}), 404
     return send_file(log_file, as_attachment=True)
 
 
