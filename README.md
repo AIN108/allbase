@@ -151,7 +151,9 @@ ALLBASE_API_TOKEN='긴-임의-문자열' ALLBASE_HOST=0.0.0.0 python run_server.
 
 토큰을 켜면 데이터 수신 API 6개(`/update_frame`, `/update_cpp_frame`, `/update_rpi_frame`, `/monitor_update`, `/update_onecam_advance_frame`, `/update_weather_data`)는 `X-Allbase-Token: <토큰>` 또는 `Authorization: Bearer <토큰>` 헤더가 있어야 요청을 받고, 없으면 401을 돌려줍니다. 각 클라이언트 프로그램도 이 헤더를 보내도록 바꿔야 합니다. 대시보드 페이지, 조회 API, 브라우저에서 호출하는 `/control_led`·리셋·내보내기 API는 토큰 없이 그대로 동작합니다.
 
-운영 환경으로 확장할 경우 인증, HTTPS, 업로드 제한, rate limiting, 운영용 WSGI 서버 등이 추가로 필요합니다. 자세한 내용은 [`SECURITY.md`](./SECURITY.md)를 참고하세요.
+요청 본문은 기본 32MB까지 받고, 넘으면 413을 돌려줍니다. `ALLBASE_MAX_UPLOAD_MB`로 바꿀 수 있으며 `0`이면 제한하지 않습니다. 날씨 로그(`weather_log.txt`)는 서버를 실행한 폴더에 저장되고 `/export_weather_log`도 같은 파일을 내보냅니다(아직 없으면 404).
+
+운영 환경으로 확장할 경우 인증, HTTPS, rate limiting, 운영용 WSGI 서버 등이 추가로 필요합니다. 자세한 내용은 [`SECURITY.md`](./SECURITY.md)를 참고하세요.
 
 ## License
 
