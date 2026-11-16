@@ -108,7 +108,7 @@ python run_server.py
 | ONECAM | `/onecam` | 카메라 프레임, 얼굴 수, 영상 재생 상태 |
 | Object Detector | `/object_detector` | 객체 감지 프레임과 감지 수치 |
 | Raspberry Pi Camera | `/rpi_cam` | Raspberry Pi 카메라 프레임과 감지 카운트 |
-| Weather | `/weather` | 수신한 날씨 정보 |
+| Weather | `/weather` | 마지막으로 수신한 날씨 정보(10초마다 `/get_last_weather_data`로 갱신), 날씨 로그 내보내기 |
 | Monitoring | `/sound` | 모니터링/소리 분석 결과 |
 | OneCam Advanced | `/onecam_advance` | 확장형 OneCam 데이터 |
 
